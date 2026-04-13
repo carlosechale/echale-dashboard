@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Client } from "@/types";
 import { createClientAction, updateClientAction, toggleClientActive } from "./actions";
 
@@ -268,6 +269,13 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
                     </td>
                     <td className="px-6 py-4 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-3">
+                        <Link
+                          href={`/dashboard/clientes/${client.id}`}
+                          className="text-xs font-sans text-accent hover:text-accent-dim transition-colors"
+                        >
+                          Ver detalle
+                        </Link>
+                        <span className="text-border text-xs">|</span>
                         <button
                           onClick={() => openEdit(client)}
                           className="text-xs font-sans text-muted hover:text-foreground transition-colors"
