@@ -24,7 +24,7 @@ export default async function ClientesPage() {
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, name, slug, active, created_at")
+    .select("id, name, slug, active, created_at, ghl_api_key, ghl_location_id")
     .order("created_at", { ascending: false });
 
   return (

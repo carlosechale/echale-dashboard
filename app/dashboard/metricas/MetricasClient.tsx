@@ -6,6 +6,19 @@ import type { Client } from "@/types";
 import type { MetricRow } from "./page";
 import { upsertMetrics, deleteMetrics } from "./actions";
 
+// ── GHL sync ─────────────────────────────────────────────────
+
+async function syncGhl(client_id: string) {
+  const res = await fetch("/api/sync/ghl", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Error al sincronizar");
+  return data as { leads: number; agendados: number; presenciales: number; cerrados: number };
+}
+
 // ── Constants ────────────────────────────────────────────────
 
 const MONTHS = [
@@ -57,6 +70,35 @@ export default function MetricasClient({
     type: "success" | "error";
     msg: string;
   } | null>(null);
+  const [syncStatus, setSyncStatus] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  async function handleSync() {
+    if (!form.client_id) {
+      setSyncStatus({ type: "error", msg: "Selecciona un cliente antes de sincronizar." });
+      return;
+    }
+    setIsSyncing(true);
+    setSyncStatus(null);
+    try {
+      const result = await syncGhl(form.client_id);
+      setSyncStatus({
+        type: "success",
+        msg: `GHL sincronizado: ${result.leads} leads · ${result.agendados} agendados · ${result.presenciales} presenciales · ${result.cerrados} cerrados`,
+      });
+      router.refresh();
+    } catch (err) {
+      setSyncStatus({
+        type: "error",
+        msg: err instanceof Error ? err.message : "Error al sincronizar GHL",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  }
 
   function set(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -141,20 +183,59 @@ export default function MetricasClient({
         className="bg-surface border border-border rounded-2xl p-6 space-y-6"
       >
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <h2 className="font-display text-base font-semibold text-foreground">
             {editingKey ? "Editar métricas" : "Nueva entrada"}
           </h2>
-          {editingKey && (
+          <div className="flex items-center gap-3">
+            {editingKey && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="text-xs text-muted hover:text-foreground font-sans transition-colors"
+              >
+                Cancelar edición
+              </button>
+            )}
             <button
               type="button"
-              onClick={cancelEdit}
-              className="text-xs text-muted hover:text-foreground font-sans transition-colors"
+              onClick={handleSync}
+              disabled={isSyncing || !form.client_id}
+              className="inline-flex items-center gap-1.5 text-xs font-sans font-medium border border-accent/30 text-accent bg-accent/5 hover:bg-accent/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={!form.client_id ? "Selecciona un cliente primero" : "Importar métricas GHL del mes actual"}
             >
-              Cancelar edición
+              {isSyncing ? (
+                <>
+                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  Sincronizando…
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 .49-4.95" />
+                  </svg>
+                  Sincronizar GHL
+                </>
+              )}
             </button>
-          )}
+          </div>
         </div>
+
+        {/* GHL sync status */}
+        {syncStatus && (
+          <div
+            className={`rounded-lg px-4 py-3 text-sm font-sans ${
+              syncStatus.type === "success"
+                ? "bg-accent/10 border border-accent/20 text-accent"
+                : "bg-red-500/10 border border-red-500/20 text-red-400"
+            }`}
+          >
+            {syncStatus.msg}
+          </div>
+        )}
 
         {/* Cliente + Fecha */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

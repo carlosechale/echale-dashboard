@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Client } from "@/types";
-import { createClientAction, toggleClientActive } from "./actions";
+import { createClientAction, updateClientAction, toggleClientActive } from "./actions";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -28,77 +28,145 @@ function formatDate(iso: string): string {
 
 // ── Types ─────────────────────────────────────────────────────
 
-interface FormState {
+interface CreateForm {
   name: string;
   slug: string;
   email: string;
   password: string;
+  ghl_api_key: string;
+  ghl_location_id: string;
 }
 
-const EMPTY: FormState = { name: "", slug: "", email: "", password: "" };
+interface EditForm {
+  name: string;
+  slug: string;
+  ghl_api_key: string;
+  ghl_location_id: string;
+}
+
+const EMPTY_CREATE: CreateForm = {
+  name: "", slug: "", email: "", password: "", ghl_api_key: "", ghl_location_id: "",
+};
 
 // ── Component ─────────────────────────────────────────────────
 
 export default function ClientesClient({ clients }: { clients: Client[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY);
-  const [slugManual, setSlugManual] = useState(false);
-  const [status, setStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
-  // Auto-generate slug from name unless the user has edited it manually
+  // Create modal
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateForm>(EMPTY_CREATE);
+  const [slugManual, setSlugManual] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showCreateApiKey, setShowCreateApiKey] = useState(false);
+  const [createStatus, setCreateStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  // Edit modal
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({ name: "", slug: "", ghl_api_key: "", ghl_location_id: "" });
+  const [editSlugManual, setEditSlugManual] = useState(false);
+  const [showEditApiKey, setShowEditApiKey] = useState(false);
+  const [editStatus, setEditStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  // Toggle
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // ── Auto-slug for create ──
   useEffect(() => {
     if (!slugManual) {
-      setForm((prev) => ({ ...prev, slug: toSlug(prev.name) }));
+      setCreateForm((prev) => ({ ...prev, slug: toSlug(prev.name) }));
     }
-  }, [form.name, slugManual]);
+  }, [createForm.name, slugManual]);
 
-  function set(field: keyof FormState, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
+  // ── Auto-slug for edit ──
+  useEffect(() => {
+    if (!editSlugManual && editingClient) {
+      setEditForm((prev) => ({ ...prev, slug: toSlug(prev.name) }));
+    }
+  }, [editForm.name, editSlugManual, editingClient]);
 
-  function openModal() {
-    setForm(EMPTY);
+  // ── Create ──
+  function openCreate() {
+    setCreateForm(EMPTY_CREATE);
     setSlugManual(false);
-    setStatus(null);
-    setShowModal(true);
     setShowPassword(false);
+    setShowCreateApiKey(false);
+    setCreateStatus(null);
+    setShowCreate(true);
   }
 
-  function closeModal() {
+  function closeCreate() {
     if (isPending) return;
-    setShowModal(false);
-    setStatus(null);
+    setShowCreate(false);
+    setCreateStatus(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function setC(field: keyof CreateForm, value: string) {
+    setCreateForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name || !form.slug || !form.email || !form.password) {
-      setStatus({ type: "error", msg: "Todos los campos son obligatorios." });
+    if (!createForm.name || !createForm.slug || !createForm.email || !createForm.password) {
+      setCreateStatus({ type: "error", msg: "Nombre, slug, email y contraseña son obligatorios." });
       return;
     }
-    setStatus(null);
-
+    setCreateStatus(null);
     startTransition(async () => {
-      const result = await createClientAction({
-        name: form.name,
-        slug: form.slug,
-        email: form.email,
-        password: form.password,
-      });
-
+      const result = await createClientAction(createForm);
       if ("error" in result && result.error) {
-        setStatus({ type: "error", msg: result.error });
+        setCreateStatus({ type: "error", msg: result.error });
       } else {
-        setShowModal(false);
+        setShowCreate(false);
         router.refresh();
       }
     });
   }
 
+  // ── Edit ──
+  function openEdit(client: Client) {
+    setEditingClient(client);
+    setEditForm({
+      name: client.name,
+      slug: client.slug,
+      ghl_api_key: client.ghl_api_key ?? "",
+      ghl_location_id: client.ghl_location_id ?? "",
+    });
+    setEditSlugManual(true); // don't auto-overwrite existing slug on open
+    setShowEditApiKey(false);
+    setEditStatus(null);
+  }
+
+  function closeEdit() {
+    if (isPending) return;
+    setEditingClient(null);
+    setEditStatus(null);
+  }
+
+  function setE(field: keyof EditForm, value: string) {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editForm.name || !editForm.slug || !editingClient) {
+      setEditStatus({ type: "error", msg: "Nombre y slug son obligatorios." });
+      return;
+    }
+    setEditStatus(null);
+    startTransition(async () => {
+      const result = await updateClientAction({ id: editingClient.id, ...editForm });
+      if ("error" in result && result.error) {
+        setEditStatus({ type: "error", msg: result.error });
+      } else {
+        setEditingClient(null);
+        router.refresh();
+      }
+    });
+  }
+
+  // ── Toggle ──
   function handleToggle(client: Client) {
     setTogglingId(client.id);
     startTransition(async () => {
@@ -108,6 +176,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
     });
   }
 
+  // ── Render ──
   return (
     <>
       {/* ── Table card ── */}
@@ -123,7 +192,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
           </div>
 
           <button
-            onClick={openModal}
+            onClick={openCreate}
             className="inline-flex items-center gap-2 bg-accent text-background font-display font-semibold text-sm px-4 py-2 rounded-lg hover:bg-accent-dim transition-colors accent-glow-sm"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -148,6 +217,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
                 <tr className="border-b border-border">
                   <Th align="left">Nombre</Th>
                   <Th align="left">Slug</Th>
+                  <Th>GHL</Th>
                   <Th>Estado</Th>
                   <Th>Alta</Th>
                   <Th align="right">Acciones</Th>
@@ -170,6 +240,18 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
                       </code>
                     </td>
                     <td className="px-6 py-4 text-center whitespace-nowrap">
+                      {client.ghl_api_key && client.ghl_location_id ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-sans text-accent">
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          Configurado
+                        </span>
+                      ) : (
+                        <span className="text-xs font-sans text-muted/50">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
                       <span
                         className={`inline-flex items-center gap-1.5 text-xs font-sans font-medium px-2.5 py-1 rounded-full border ${
                           client.active
@@ -177,11 +259,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
                             : "text-muted bg-white/5 border-border"
                         }`}
                       >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            client.active ? "bg-accent" : "bg-muted"
-                          }`}
-                        />
+                        <span className={`w-1.5 h-1.5 rounded-full ${client.active ? "bg-accent" : "bg-muted"}`} />
                         {client.active ? "Activo" : "Inactivo"}
                       </span>
                     </td>
@@ -189,17 +267,26 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
                       {formatDate(client.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => handleToggle(client)}
-                        disabled={isPending && togglingId === client.id}
-                        className="text-xs font-sans text-muted hover:text-foreground transition-colors disabled:opacity-40"
-                      >
-                        {togglingId === client.id
-                          ? "Guardando…"
-                          : client.active
-                          ? "Desactivar"
-                          : "Activar"}
-                      </button>
+                      <div className="inline-flex items-center gap-3">
+                        <button
+                          onClick={() => openEdit(client)}
+                          className="text-xs font-sans text-muted hover:text-foreground transition-colors"
+                        >
+                          Editar
+                        </button>
+                        <span className="text-border text-xs">|</span>
+                        <button
+                          onClick={() => handleToggle(client)}
+                          disabled={isPending && togglingId === client.id}
+                          className="text-xs font-sans text-muted hover:text-foreground transition-colors disabled:opacity-40"
+                        >
+                          {togglingId === client.id
+                            ? "Guardando…"
+                            : client.active
+                            ? "Desactivar"
+                            : "Activar"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -209,148 +296,294 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
         )}
       </div>
 
-      {/* ── Modal ── */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
-        >
-          <div className="bg-surface border border-border rounded-2xl w-full max-w-md shadow-2xl">
-            {/* Modal header */}
-            <div className="px-6 py-5 border-b border-border flex items-center justify-between">
-              <h2 className="font-display text-base font-semibold text-foreground">
-                Nuevo cliente
-              </h2>
-              <button
-                onClick={closeModal}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-foreground hover:bg-white/5 transition-colors"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+      {/* ── Create Modal ── */}
+      {showCreate && (
+        <Modal onClose={closeCreate}>
+          <ModalHeader title="Nuevo cliente" onClose={closeCreate} />
+          <form onSubmit={handleCreate} className="px-6 py-6 space-y-5">
+            <div>
+              <FieldLabel>Nombre del cliente</FieldLabel>
+              <input
+                type="text"
+                value={createForm.name}
+                onChange={(e) => setC("name", e.target.value)}
+                placeholder="ej. Clínica Dental Madrid"
+                autoFocus
+                className={inputCls}
+              />
             </div>
 
-            {/* Modal body */}
-            <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
-              {/* Name */}
+            <div>
+              <FieldLabel>Slug</FieldLabel>
+              <input
+                type="text"
+                value={createForm.slug}
+                onChange={(e) => { setSlugManual(true); setC("slug", e.target.value); }}
+                placeholder="clinica-dental-madrid"
+                className={`${inputCls} font-mono`}
+              />
+              <p className="text-xs font-sans text-muted/60 mt-1.5">
+                Se genera automáticamente. Puedes editarlo manualmente.
+              </p>
+            </div>
+
+            {/* GHL credentials */}
+            <GhlSection
+              apiKey={createForm.ghl_api_key}
+              locationId={createForm.ghl_location_id}
+              showApiKey={showCreateApiKey}
+              onToggleShow={() => setShowCreateApiKey((v) => !v)}
+              onChangeApiKey={(v) => setC("ghl_api_key", v)}
+              onChangeLocationId={(v) => setC("ghl_location_id", v)}
+            />
+
+            <div className="border-t border-border pt-5 space-y-4">
+              <p className="text-xs font-sans font-semibold text-muted uppercase tracking-widest">
+                Acceso del cliente
+              </p>
               <div>
-                <FieldLabel>Nombre del cliente</FieldLabel>
+                <FieldLabel>Email</FieldLabel>
                 <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  placeholder="ej. Clínica Dental Madrid"
-                  autoFocus
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-sans text-foreground placeholder:text-muted/40 focus:outline-none focus:border-accent transition-colors"
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setC("email", e.target.value)}
+                  placeholder="cliente@ejemplo.com"
+                  className={inputCls}
                 />
               </div>
-
-              {/* Slug */}
               <div>
-                <FieldLabel>Slug</FieldLabel>
-                <input
-                  type="text"
-                  value={form.slug}
-                  onChange={(e) => {
-                    setSlugManual(true);
-                    set("slug", e.target.value);
-                  }}
-                  placeholder="clinica-dental-madrid"
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-mono text-foreground placeholder:text-muted/40 focus:outline-none focus:border-accent transition-colors"
-                />
-                <p className="text-xs font-sans text-muted/60 mt-1.5">
-                  Se genera automáticamente. Puedes editarlo manualmente.
-                </p>
-              </div>
-
-              <div className="border-t border-border pt-5 space-y-4">
-                <p className="text-xs font-sans font-semibold text-muted uppercase tracking-widest">
-                  Acceso del cliente
-                </p>
-
-                {/* Email */}
-                <div>
-                  <FieldLabel>Email</FieldLabel>
+                <FieldLabel>Contraseña</FieldLabel>
+                <div className="relative">
                   <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => set("email", e.target.value)}
-                    placeholder="cliente@ejemplo.com"
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-sans text-foreground placeholder:text-muted/40 focus:outline-none focus:border-accent transition-colors"
+                    type={showPassword ? "text" : "password"}
+                    value={createForm.password}
+                    onChange={(e) => setC("password", e.target.value)}
+                    placeholder="Mínimo 8 caracteres"
+                    className={`${inputCls} pr-10`}
                   />
-                </div>
-
-                {/* Password */}
-                <div>
-                  <FieldLabel>Contraseña</FieldLabel>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={form.password}
-                      onChange={(e) => set("password", e.target.value)}
-                      placeholder="Mínimo 8 caracteres"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2.5 pr-10 text-sm font-sans text-foreground placeholder:text-muted/40 focus:outline-none focus:border-accent transition-colors"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <IconEyeOff /> : <IconEye />}
-                    </button>
-                  </div>
+                  <EyeToggle show={showPassword} onToggle={() => setShowPassword((v) => !v)} />
                 </div>
               </div>
+            </div>
 
-              {/* Status */}
-              {status && (
-                <div
-                  className={`rounded-lg px-4 py-3 text-sm font-sans ${
-                    status.type === "success"
-                      ? "bg-accent/10 border border-accent/20 text-accent"
-                      : "bg-red-500/10 border border-red-500/20 text-red-400"
-                  }`}
-                >
-                  {status.msg}
-                </div>
-              )}
+            {createStatus && <StatusBanner status={createStatus} />}
 
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={isPending}
-                  className="text-sm font-sans text-muted hover:text-foreground transition-colors disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="inline-flex items-center gap-2 bg-accent text-background font-display font-semibold text-sm px-5 py-2.5 rounded-lg hover:bg-accent-dim transition-colors disabled:opacity-50 disabled:cursor-not-allowed accent-glow-sm"
-                >
-                  {isPending ? "Creando…" : "Crear cliente"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <ModalActions
+              isPending={isPending}
+              onCancel={closeCreate}
+              submitLabel="Crear cliente"
+              pendingLabel="Creando…"
+            />
+          </form>
+        </Modal>
+      )}
+
+      {/* ── Edit Modal ── */}
+      {editingClient && (
+        <Modal onClose={closeEdit}>
+          <ModalHeader title={`Editar · ${editingClient.name}`} onClose={closeEdit} />
+          <form onSubmit={handleEdit} className="px-6 py-6 space-y-5">
+            <div>
+              <FieldLabel>Nombre del cliente</FieldLabel>
+              <input
+                type="text"
+                value={editForm.name}
+                onChange={(e) => { setEditSlugManual(false); setE("name", e.target.value); }}
+                autoFocus
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <FieldLabel>Slug</FieldLabel>
+              <input
+                type="text"
+                value={editForm.slug}
+                onChange={(e) => { setEditSlugManual(true); setE("slug", e.target.value); }}
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+
+            {/* GHL credentials */}
+            <GhlSection
+              apiKey={editForm.ghl_api_key}
+              locationId={editForm.ghl_location_id}
+              showApiKey={showEditApiKey}
+              onToggleShow={() => setShowEditApiKey((v) => !v)}
+              onChangeApiKey={(v) => setE("ghl_api_key", v)}
+              onChangeLocationId={(v) => setE("ghl_location_id", v)}
+            />
+
+            {editStatus && <StatusBanner status={editStatus} />}
+
+            <ModalActions
+              isPending={isPending}
+              onCancel={closeEdit}
+              submitLabel="Guardar cambios"
+              pendingLabel="Guardando…"
+            />
+          </form>
+        </Modal>
       )}
     </>
   );
 }
 
-// ── Primitives ────────────────────────────────────────────────
+// ── Shared sub-components ─────────────────────────────────────
+
+function GhlSection({
+  apiKey,
+  locationId,
+  showApiKey,
+  onToggleShow,
+  onChangeApiKey,
+  onChangeLocationId,
+}: {
+  apiKey: string;
+  locationId: string;
+  showApiKey: boolean;
+  onToggleShow: () => void;
+  onChangeApiKey: (v: string) => void;
+  onChangeLocationId: (v: string) => void;
+}) {
+  return (
+    <div className="border-t border-border pt-5 space-y-4">
+      <p className="text-xs font-sans font-semibold text-muted uppercase tracking-widest">
+        GoHighLevel
+      </p>
+      <div>
+        <FieldLabel>GHL API Key</FieldLabel>
+        <div className="relative">
+          <input
+            type={showApiKey ? "text" : "password"}
+            value={apiKey}
+            onChange={(e) => onChangeApiKey(e.target.value)}
+            placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9…"
+            className={`${inputCls} pr-10 font-mono text-xs`}
+          />
+          <EyeToggle show={showApiKey} onToggle={onToggleShow} />
+        </div>
+      </div>
+      <div>
+        <FieldLabel>GHL Location ID</FieldLabel>
+        <input
+          type="text"
+          value={locationId}
+          onChange={(e) => onChangeLocationId(e.target.value)}
+          placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
+          className={`${inputCls} font-mono text-xs`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-surface border border-border rounded-2xl w-full max-w-md shadow-2xl my-auto">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="px-6 py-5 border-b border-border flex items-center justify-between">
+      <h2 className="font-display text-base font-semibold text-foreground">{title}</h2>
+      <button
+        type="button"
+        onClick={onClose}
+        className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-foreground hover:bg-white/5 transition-colors"
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function ModalActions({
+  isPending,
+  onCancel,
+  submitLabel,
+  pendingLabel,
+}: {
+  isPending: boolean;
+  onCancel: () => void;
+  submitLabel: string;
+  pendingLabel: string;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-3 pt-1">
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={isPending}
+        className="text-sm font-sans text-muted hover:text-foreground transition-colors disabled:opacity-50"
+      >
+        Cancelar
+      </button>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="inline-flex items-center gap-2 bg-accent text-background font-display font-semibold text-sm px-5 py-2.5 rounded-lg hover:bg-accent-dim transition-colors disabled:opacity-50 disabled:cursor-not-allowed accent-glow-sm"
+      >
+        {isPending ? pendingLabel : submitLabel}
+      </button>
+    </div>
+  );
+}
+
+function StatusBanner({ status }: { status: { type: "success" | "error"; msg: string } }) {
+  return (
+    <div
+      className={`rounded-lg px-4 py-3 text-sm font-sans ${
+        status.type === "success"
+          ? "bg-accent/10 border border-accent/20 text-accent"
+          : "bg-red-500/10 border border-red-500/20 text-red-400"
+      }`}
+    >
+      {status.msg}
+    </div>
+  );
+}
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <label className="block text-xs font-sans font-medium text-muted mb-1.5 uppercase tracking-wider">
       {children}
     </label>
+  );
+}
+
+function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      tabIndex={-1}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
+    >
+      {show ? (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+          <line x1="1" y1="1" x2="23" y2="23" />
+        </svg>
+      ) : (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -370,21 +603,5 @@ function Th({
   );
 }
 
-function IconEye() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconEyeOff() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-}
+const inputCls =
+  "w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-sans text-foreground placeholder:text-muted/40 focus:outline-none focus:border-accent transition-colors";
