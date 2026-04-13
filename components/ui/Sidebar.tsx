@@ -12,10 +12,10 @@ interface NavItem {
 }
 
 const ADMIN_NAV: NavItem[] = [
-  { label: "Dashboard",      href: "/dashboard",  icon: <IconGrid /> },
-  { label: "Clientes",       href: "/clientes",   icon: <IconUsers /> },
-  { label: "Métricas",       href: "/metricas",   icon: <IconChart /> },
-  { label: "Configuración",  href: "/settings",   icon: <IconGear /> },
+  { label: "Dashboard",      href: "/dashboard",           icon: <IconGrid /> },
+  { label: "Clientes",       href: "/clientes",            icon: <IconUsers /> },
+  { label: "Métricas",       href: "/dashboard/metricas",  icon: <IconChart /> },
+  { label: "Configuración",  href: "/settings",            icon: <IconGear /> },
 ];
 
 const CLIENT_NAV: NavItem[] = [
