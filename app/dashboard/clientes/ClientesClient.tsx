@@ -43,6 +43,7 @@ interface EditForm {
   slug: string;
   ghl_api_key: string;
   ghl_location_id: string;
+  gsc_property_url: string;
 }
 
 const EMPTY_CREATE: CreateForm = {
@@ -65,7 +66,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
 
   // Edit modal
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: "", slug: "", ghl_api_key: "", ghl_location_id: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ name: "", slug: "", ghl_api_key: "", ghl_location_id: "", gsc_property_url: "" });
   const [editSlugManual, setEditSlugManual] = useState(false);
   const [showEditApiKey, setShowEditApiKey] = useState(false);
   const [editStatus, setEditStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
@@ -133,6 +134,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
       slug: client.slug,
       ghl_api_key: client.ghl_api_key ?? "",
       ghl_location_id: client.ghl_location_id ?? "",
+      gsc_property_url: client.gsc_property_url ?? "",
     });
     setEditSlugManual(true); // don't auto-overwrite existing slug on open
     setShowEditApiKey(false);
@@ -421,6 +423,26 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
               onChangeApiKey={(v) => setE("ghl_api_key", v)}
               onChangeLocationId={(v) => setE("ghl_location_id", v)}
             />
+
+            {/* GSC */}
+            <div className="border-t border-border pt-5 space-y-4">
+              <p className="text-xs font-sans font-semibold text-muted uppercase tracking-widest">
+                Google Search Console
+              </p>
+              <div>
+                <FieldLabel>URL de la propiedad</FieldLabel>
+                <input
+                  type="url"
+                  value={editForm.gsc_property_url}
+                  onChange={(e) => setE("gsc_property_url", e.target.value)}
+                  placeholder="https://ejemplo.com/"
+                  className={inputCls}
+                />
+                <p className="text-xs font-sans text-muted/60 mt-1.5">
+                  Debe coincidir exactamente con la propiedad en GSC (incluye la barra final).
+                </p>
+              </div>
+            </div>
 
             {editStatus && <StatusBanner status={editStatus} />}
 

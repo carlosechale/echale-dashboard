@@ -100,13 +100,14 @@ export interface UpdateClientPayload {
   slug: string;
   ghl_api_key: string;
   ghl_location_id: string;
+  gsc_property_url: string;
 }
 
 export async function updateClientAction(data: UpdateClientPayload) {
   const { error: authError, supabase } = await requireAdmin();
   if (authError || !supabase) return { error: authError ?? "Error de autenticación" };
 
-  const { id, name, slug, ghl_api_key, ghl_location_id } = data;
+  const { id, name, slug, ghl_api_key, ghl_location_id, gsc_property_url } = data;
 
   // Check slug uniqueness (excluding current client)
   const { data: existing } = await supabase
@@ -125,6 +126,7 @@ export async function updateClientAction(data: UpdateClientPayload) {
       slug,
       ghl_api_key: ghl_api_key || null,
       ghl_location_id: ghl_location_id || null,
+      gsc_property_url: gsc_property_url || null,
     })
     .eq("id", id);
 

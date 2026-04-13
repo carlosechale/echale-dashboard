@@ -17,6 +17,7 @@ export interface Client {
   created_at: string;
   ghl_api_key: string | null;
   ghl_location_id: string | null;
+  gsc_property_url: string | null;
 }
 
 export interface MetricsGHL {
