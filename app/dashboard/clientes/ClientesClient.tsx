@@ -45,6 +45,7 @@ interface EditForm {
   ghl_location_id: string;
   gsc_property_url: string;
   meta_ad_account_id: string;
+  trueranker_project_id: string;
 }
 
 const EMPTY_CREATE: CreateForm = {
@@ -67,7 +68,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
 
   // Edit modal
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: "", slug: "", ghl_api_key: "", ghl_location_id: "", gsc_property_url: "", meta_ad_account_id: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ name: "", slug: "", ghl_api_key: "", ghl_location_id: "", gsc_property_url: "", meta_ad_account_id: "", trueranker_project_id: "" });
   const [editSlugManual, setEditSlugManual] = useState(false);
   const [showEditApiKey, setShowEditApiKey] = useState(false);
   const [editStatus, setEditStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
@@ -137,6 +138,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
       ghl_location_id: client.ghl_location_id ?? "",
       gsc_property_url: client.gsc_property_url ?? "",
       meta_ad_account_id: client.meta_ad_account_id ?? "",
+      trueranker_project_id: client.trueranker_project_id ?? "",
     });
     setEditSlugManual(true); // don't auto-overwrite existing slug on open
     setShowEditApiKey(false);
@@ -161,7 +163,10 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
     }
     setEditStatus(null);
     startTransition(async () => {
-      const result = await updateClientAction({ id: editingClient.id, ...editForm });
+      const result = await updateClientAction({
+        id: editingClient.id,
+        ...editForm,
+      });
       if ("error" in result && result.error) {
         setEditStatus({ type: "error", msg: result.error });
       } else {
@@ -462,6 +467,26 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
                 />
                 <p className="text-xs font-sans text-muted/60 mt-1.5">
                   ID de la cuenta publicitaria (con o sin prefijo act_).
+                </p>
+              </div>
+            </div>
+
+            {/* TrueRanker */}
+            <div className="border-t border-border pt-5 space-y-4">
+              <p className="text-xs font-sans font-semibold text-muted uppercase tracking-widest">
+                TrueRanker
+              </p>
+              <div>
+                <FieldLabel>TrueRanker Project ID</FieldLabel>
+                <input
+                  type="text"
+                  value={editForm.trueranker_project_id}
+                  onChange={(e) => setE("trueranker_project_id", e.target.value)}
+                  placeholder="12345"
+                  className={`${inputCls} font-mono text-xs`}
+                />
+                <p className="text-xs font-sans text-muted/60 mt-1.5">
+                  ID numérico del proyecto en TrueRanker.
                 </p>
               </div>
             </div>

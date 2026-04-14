@@ -6,6 +6,14 @@ interface ClientOption {
   id: string;
   name: string;
   hasGsc: boolean;
+  hasTrueranker: boolean;
+}
+
+function clientLabel(c: ClientOption): string {
+  const missing: string[] = [];
+  if (!c.hasGsc)        missing.push("sin GSC");
+  if (!c.hasTrueranker) missing.push("sin TR");
+  return missing.length ? `${c.name} (${missing.join(" · ")})` : c.name;
 }
 
 export default function SeoClientSelect({
@@ -39,7 +47,7 @@ export default function SeoClientSelect({
         <option value="">Selecciona un cliente…</option>
         {clients.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.name}{!c.hasGsc ? " (sin GSC)" : ""}
+            {clientLabel(c)}
           </option>
         ))}
       </select>
