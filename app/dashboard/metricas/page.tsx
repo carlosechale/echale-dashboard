@@ -19,6 +19,14 @@ export interface MetricRow {
   cpl: number;
 }
 
+export interface SyncClientInfo {
+  id: string;
+  name: string;
+  last_sync_at: string | null;
+  has_ghl: boolean;
+  has_meta: boolean;
+}
+
 export default async function MetricasPage() {
   const supabase = await createClient();
 
@@ -35,12 +43,22 @@ export default async function MetricasPage() {
 
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  // Fetch active clients for the dropdown
-  const { data: clients } = await supabase
+  // Fetch active clients (dropdown + sync status)
+  const { data: clientsRaw } = await supabase
     .from("clients")
-    .select("id, name")
+    .select("id, name, ghl_api_key, ghl_location_id, meta_ad_account_id, last_sync_at")
     .eq("active", true)
     .order("name");
+
+  const clients = (clientsRaw ?? []).map((c) => ({ id: c.id, name: c.name }));
+
+  const syncClients: SyncClientInfo[] = (clientsRaw ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    last_sync_at: c.last_sync_at ?? null,
+    has_ghl: !!(c.ghl_api_key && c.ghl_location_id),
+    has_meta: !!c.meta_ad_account_id,
+  }));
 
   // Fetch last 10 GHL records (most recent first)
   const { data: ghlRows } = await supabase
@@ -97,7 +115,7 @@ export default async function MetricasPage() {
         </p>
       </div>
 
-      <MetricasClient clients={clients ?? []} initialRows={rows} />
+      <MetricasClient clients={clients} initialRows={rows} syncClients={syncClients} />
     </div>
   );
 }

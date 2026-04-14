@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Client } from "@/types";
-import type { MetricRow } from "./page";
+import type { MetricRow, SyncClientInfo } from "./page";
 import { upsertMetrics, deleteMetrics } from "./actions";
 
 // ── GHL sync ─────────────────────────────────────────────────
@@ -71,9 +71,11 @@ interface FormState {
 export default function MetricasClient({
   clients,
   initialRows,
+  syncClients,
 }: {
   clients: Pick<Client, "id" | "name">[];
   initialRows: MetricRow[];
+  syncClients: SyncClientInfo[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -431,6 +433,78 @@ export default function MetricasClient({
         </div>
       </form>
 
+      {/* ── Última sincronización ── */}
+      <div className="bg-surface border border-border rounded-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-border flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-base font-semibold text-foreground">
+              Última sincronización
+            </h2>
+            <p className="mt-0.5 text-xs text-muted font-sans">
+              Sincronización nocturna automática — 3:00 AM (Europa/Madrid)
+            </p>
+          </div>
+        </div>
+
+        {syncClients.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <p className="text-muted text-sm font-sans">Sin clientes activos configurados.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm font-sans">
+              <thead>
+                <tr className="border-b border-border">
+                  <Th align="left">Cliente</Th>
+                  <Th align="left">Servicios</Th>
+                  <Th align="left">Última sincronización</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {syncClients.map((c, i) => (
+                  <tr
+                    key={c.id}
+                    className={`border-b border-border/50 hover:bg-white/[0.02] transition-colors ${
+                      i === syncClients.length - 1 ? "border-b-0" : ""
+                    }`}
+                  >
+                    <td className="px-6 py-4 text-foreground font-medium whitespace-nowrap">
+                      {c.name}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        {c.has_ghl && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-sans font-medium bg-accent/10 text-accent border border-accent/20">
+                            GHL
+                          </span>
+                        )}
+                        {c.has_meta && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-sans font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            Meta
+                          </span>
+                        )}
+                        {!c.has_ghl && !c.has_meta && (
+                          <span className="text-muted/50 text-xs">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {c.last_sync_at ? (
+                        <span className="text-foreground tabular-nums">
+                          {formatSyncDate(c.last_sync_at)}
+                        </span>
+                      ) : (
+                        <span className="text-muted/50 text-xs">Nunca sincronizado</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* ── Table ── */}
       <div className="bg-surface border border-border rounded-2xl overflow-hidden">
         <div className="px-6 py-5 border-b border-border flex items-center justify-between">
@@ -524,6 +598,16 @@ export default function MetricasClient({
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+
+function formatSyncDate(iso: string): string {
+  return new Date(iso).toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function formatFecha(fecha: string): string {
   return new Date(fecha + "T12:00:00").toLocaleDateString("es-ES", {

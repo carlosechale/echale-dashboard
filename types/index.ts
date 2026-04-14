@@ -19,6 +19,7 @@ export interface Client {
   ghl_location_id: string | null;
   gsc_property_url: string | null;
   meta_ad_account_id: string | null;
+  last_sync_at: string | null;
 }
 
 export interface MetricsGHL {
