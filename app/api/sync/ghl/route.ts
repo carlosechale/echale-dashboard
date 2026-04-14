@@ -87,8 +87,21 @@ export async function POST(request: NextRequest) {
     );
 
   if (upsertError) {
+    await supabase.from("sync_logs").insert({
+      client_id,
+      tipo: "ghl",
+      status: "error",
+      mensaje: upsertError.message,
+    });
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
   }
+
+  await supabase.from("sync_logs").insert({
+    client_id,
+    tipo: "ghl",
+    status: "success",
+    mensaje: `Leads: ${leads} · Agendados: ${opps.agendados} · Cerrados: ${opps.cerrados} · Facturación: €${opps.facturacionReal}`,
+  });
 
   return NextResponse.json({
     success: true,

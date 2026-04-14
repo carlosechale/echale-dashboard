@@ -12,17 +12,18 @@ interface NavItem {
 }
 
 const ADMIN_NAV: NavItem[] = [
-  { label: "Dashboard",      href: "/dashboard",           icon: <IconGrid /> },
-  { label: "Clientes",       href: "/dashboard/clientes",  icon: <IconUsers /> },
-  { label: "Métricas",       href: "/dashboard/metricas",  icon: <IconChart /> },
-  { label: "SEO",            href: "/dashboard/seo",       icon: <IconSearch /> },
-  { label: "Configuración",  href: "/settings",            icon: <IconGear /> },
+  { label: "Dashboard",      href: "/dashboard",                  icon: <IconGrid /> },
+  { label: "Clientes",       href: "/dashboard/clientes",         icon: <IconUsers /> },
+  { label: "Métricas",       href: "/dashboard/metricas",         icon: <IconChart /> },
+  { label: "SEO",            href: "/dashboard/seo",              icon: <IconSearch /> },
+  { label: "Configuración",  href: "/dashboard/configuracion",    icon: <IconGear /> },
 ];
 
 const CLIENT_NAV: NavItem[] = [
-  { label: "Mi panel",   href: "/dashboard",    icon: <IconGrid /> },
-  { label: "Métricas",   href: "/metricas",     icon: <IconChart /> },
-  { label: "Facturas",   href: "/facturas",     icon: <IconDoc /> },
+  { label: "Mi panel",       href: "/dashboard",                  icon: <IconGrid /> },
+  { label: "Métricas",       href: "/metricas",                   icon: <IconChart /> },
+  { label: "Facturas",       href: "/facturas",                   icon: <IconDoc /> },
+  { label: "Configuración",  href: "/dashboard/configuracion",    icon: <IconGear /> },
 ];
 
 export default function Sidebar({ role }: { role: Role }) {

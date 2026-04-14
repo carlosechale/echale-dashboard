@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Client } from "@/types";
 import { createClientAction, updateClientAction, toggleClientActive } from "./actions";
@@ -56,6 +56,7 @@ const EMPTY_CREATE: CreateForm = {
 
 export default function ClientesClient({ clients }: { clients: Client[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   // Create modal
@@ -89,6 +90,16 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
       setEditForm((prev) => ({ ...prev, slug: toSlug(prev.name) }));
     }
   }, [editForm.name, editSlugManual, editingClient]);
+
+  // ── Auto-open edit modal from ?configure=CLIENT_ID ──
+  useEffect(() => {
+    const configureId = searchParams.get("configure");
+    if (configureId && clients.length > 0) {
+      const target = clients.find((c) => c.id === configureId);
+      if (target) openEdit(target);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, clients]);
 
   // ── Create ──
   function openCreate() {

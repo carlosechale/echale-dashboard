@@ -71,14 +71,23 @@ export async function POST(request: NextRequest) {
 
           if (error) {
             syncErrors.push({ client: client.name, service: "GHL", error: error.message });
+            await supabase.from("sync_logs").insert({
+              client_id: client.id, tipo: "ghl", status: "error", mensaje: error.message,
+            });
           } else {
             syncedSomething = true;
+            await supabase.from("sync_logs").insert({
+              client_id: client.id,
+              tipo: "ghl",
+              status: "success",
+              mensaje: `Leads: ${leads} · Agendados: ${opps.agendados} · Cerrados: ${opps.cerrados} · Facturación: €${opps.facturacionReal}`,
+            });
           }
         } catch (err) {
-          syncErrors.push({
-            client: client.name,
-            service: "GHL",
-            error: err instanceof Error ? err.message : "Error desconocido",
+          const errMsg = err instanceof Error ? err.message : "Error desconocido";
+          syncErrors.push({ client: client.name, service: "GHL", error: errMsg });
+          await supabase.from("sync_logs").insert({
+            client_id: client.id, tipo: "ghl", status: "error", mensaje: errMsg,
           });
         }
       }
@@ -107,14 +116,23 @@ export async function POST(request: NextRequest) {
 
           if (error) {
             syncErrors.push({ client: client.name, service: "Meta", error: error.message });
+            await supabase.from("sync_logs").insert({
+              client_id: client.id, tipo: "meta", status: "error", mensaje: error.message,
+            });
           } else {
             syncedSomething = true;
+            await supabase.from("sync_logs").insert({
+              client_id: client.id,
+              tipo: "meta",
+              status: "success",
+              mensaje: `Gasto: €${metaData.spend.toFixed(2)} · Leads: ${metaData.leads} · CPL: €${metaData.cpl.toFixed(2)}`,
+            });
           }
         } catch (err) {
-          syncErrors.push({
-            client: client.name,
-            service: "Meta",
-            error: err instanceof Error ? err.message : "Error desconocido",
+          const errMsg = err instanceof Error ? err.message : "Error desconocido";
+          syncErrors.push({ client: client.name, service: "Meta", error: errMsg });
+          await supabase.from("sync_logs").insert({
+            client_id: client.id, tipo: "meta", status: "error", mensaje: errMsg,
           });
         }
       }

@@ -92,8 +92,21 @@ export async function POST(request: NextRequest) {
     );
 
   if (upsertError) {
+    await supabase.from("sync_logs").insert({
+      client_id,
+      tipo: "meta",
+      status: "error",
+      mensaje: upsertError.message,
+    });
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
   }
+
+  await supabase.from("sync_logs").insert({
+    client_id,
+    tipo: "meta",
+    status: "success",
+    mensaje: `Gasto: €${metaData.spend.toFixed(2)} · Leads: ${metaData.leads} · CPL: €${metaData.cpl.toFixed(2)}`,
+  });
 
   return NextResponse.json({
     success: true,
