@@ -61,9 +61,10 @@ export async function POST(request: NextRequest) {
                 client_id: client.id,
                 fecha,
                 leads,
-                agendados: opps.agendados,
-                presenciales: opps.presenciales,
-                cerrados: opps.cerrados,
+                agendados:        opps.agendados,
+                presenciales:     opps.presenciales,
+                cerrados:         opps.cerrados,
+                facturacion_real: opps.facturacionReal,
               },
               { onConflict: "client_id,fecha" }
             );

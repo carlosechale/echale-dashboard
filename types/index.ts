@@ -21,6 +21,7 @@ export interface Client {
   meta_ad_account_id: string | null;
   trueranker_project_id: string | null;
   last_sync_at: string | null;
+  objetivo_leads: number;
 }
 
 export interface MetricsGHL {
@@ -31,6 +32,7 @@ export interface MetricsGHL {
   agendados: number;
   presenciales: number;
   cerrados: number;
+  facturacion_real: number;
   created_at: string;
 }
 

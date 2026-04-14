@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   // 5 — Call GHL API
   let leads: number;
-  let opps: { agendados: number; presenciales: number; cerrados: number };
+  let opps: { agendados: number; presenciales: number; cerrados: number; facturacionReal: number };
 
   try {
     [leads, opps] = await Promise.all([
@@ -78,9 +78,10 @@ export async function POST(request: NextRequest) {
         client_id,
         fecha,
         leads,
-        agendados:    opps.agendados,
-        presenciales: opps.presenciales,
-        cerrados:     opps.cerrados,
+        agendados:       opps.agendados,
+        presenciales:    opps.presenciales,
+        cerrados:        opps.cerrados,
+        facturacion_real: opps.facturacionReal,
       },
       { onConflict: "client_id,fecha" }
     );
@@ -94,6 +95,9 @@ export async function POST(request: NextRequest) {
     client: client.name,
     fecha,
     leads,
-    ...opps,
+    agendados:        opps.agendados,
+    presenciales:     opps.presenciales,
+    cerrados:         opps.cerrados,
+    facturacion_real: opps.facturacionReal,
   });
 }

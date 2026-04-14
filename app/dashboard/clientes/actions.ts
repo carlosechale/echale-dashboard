@@ -109,7 +109,11 @@ export async function updateClientAction(data: UpdateClientPayload) {
   const { error: authError, supabase } = await requireAdmin();
   if (authError || !supabase) return { error: authError ?? "Error de autenticación" };
 
-  const { id, name, slug, ghl_api_key, ghl_location_id, gsc_property_url, meta_ad_account_id, trueranker_project_id } = data;
+  const {
+    id, name, slug,
+    ghl_api_key, ghl_location_id,
+    gsc_property_url, meta_ad_account_id, trueranker_project_id,
+  } = data;
 
   // Check slug uniqueness (excluding current client)
   const { data: existing } = await supabase

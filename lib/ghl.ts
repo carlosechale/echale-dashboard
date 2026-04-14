@@ -58,6 +58,7 @@ interface OpportunityCounts {
   agendados: number;
   presenciales: number;
   cerrados: number;
+  facturacionReal: number; // sum of monetaryValue for stage "Cliente"
 }
 
 /**
@@ -90,8 +91,9 @@ export async function getOpportunities(
     }
   }
 
-  // 2 — Paginate through all opportunities and accumulate stage counts
+  // 2 — Paginate through all opportunities and accumulate stage counts + monetary value
   const stageCounts: Record<string, number> = {};
+  let facturacionReal = 0;
   const LIMIT = 100;
   let page = 1;
   let fetched = 0;
@@ -118,6 +120,7 @@ export async function getOpportunities(
     const opportunities: {
       pipelineStageId?: string;
       pipelineStage?: { name?: string };
+      monetaryValue?: number | string;
     }[] = data.opportunities ?? [];
 
     if (page === 1) {
@@ -131,6 +134,9 @@ export async function getOpportunities(
         "";
       if (stageName) {
         stageCounts[stageName] = (stageCounts[stageName] ?? 0) + 1;
+        if (stageName === STAGE_CERRADOS) {
+          facturacionReal += Number(opp.monetaryValue ?? 0);
+        }
       }
     }
 
@@ -140,8 +146,9 @@ export async function getOpportunities(
   }
 
   return {
-    agendados:    STAGES_AGENDADOS.reduce((sum, s) => sum + (stageCounts[s] ?? 0), 0),
-    presenciales: stageCounts[STAGE_PRESENCIALES] ?? 0,
-    cerrados:     stageCounts[STAGE_CERRADOS]     ?? 0,
+    agendados:       STAGES_AGENDADOS.reduce((sum, s) => sum + (stageCounts[s] ?? 0), 0),
+    presenciales:    stageCounts[STAGE_PRESENCIALES] ?? 0,
+    cerrados:        stageCounts[STAGE_CERRADOS]     ?? 0,
+    facturacionReal,
   };
 }

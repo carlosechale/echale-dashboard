@@ -18,6 +18,8 @@ interface MonthRow {
   tasa_agendamiento: number;
   tasa_presencialidad: number;
   tasa_cierre: number;
+  facturacion: number;
+  roi: number | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -70,12 +72,12 @@ async function getClientDetail(id: string, rangeMonths: number) {
   const [{ data: client }, { data: ghlRows }, { data: metaRows }] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, slug, active")
+      .select("id, name, slug, active, ticket_medio")
       .eq("id", id)
       .single(),
     supabase
       .from("metrics_ghl")
-      .select("fecha, leads, agendados, presenciales, cerrados")
+      .select("fecha, leads, agendados, presenciales, cerrados, facturacion_real")
       .eq("client_id", id)
       .gte("fecha", since)
       .order("fecha"),
@@ -101,12 +103,16 @@ async function getClientDetail(id: string, rangeMonths: number) {
     const g = ghlByFecha[fecha];
     const m = metaByFecha[fecha];
 
-    const leads        = g?.leads        ?? 0;
-    const agendados    = g?.agendados    ?? 0;
-    const presenciales = g?.presenciales ?? 0;
-    const cerrados     = g?.cerrados     ?? 0;
-    const gasto        = m?.gasto        ?? 0;
-    const cpl          = m?.cpl          ?? 0;
+    const leads           = g?.leads           ?? 0;
+    const agendados       = g?.agendados       ?? 0;
+    const presenciales    = g?.presenciales    ?? 0;
+    const cerrados        = g?.cerrados        ?? 0;
+    const gasto           = m?.gasto           ?? 0;
+    const cpl             = m?.cpl             ?? 0;
+    const facturacion     = (g as { facturacion_real?: number })?.facturacion_real ?? 0;
+    const roi             = facturacion > 0 && gasto > 0
+      ? ((facturacion - gasto) / gasto) * 100
+      : null;
 
     return {
       fecha,
@@ -120,6 +126,8 @@ async function getClientDetail(id: string, rangeMonths: number) {
       tasa_agendamiento:   pct(agendados,    leads),
       tasa_presencialidad: pct(presenciales, agendados),
       tasa_cierre:         pct(cerrados,     presenciales),
+      facturacion,
+      roi,
     };
   });
 
@@ -135,6 +143,11 @@ async function getClientDetail(id: string, rangeMonths: number) {
     { leads: 0, agendados: 0, presenciales: 0, cerrados: 0, gasto: 0 }
   );
   const totalCPL = totals.leads > 0 ? totals.gasto / totals.leads : 0;
+  const totalFacturacion = rows.reduce((sum, r) => sum + r.facturacion, 0);
+  const totalRoi =
+    totalFacturacion > 0 && totals.gasto > 0
+      ? ((totalFacturacion - totals.gasto) / totals.gasto) * 100
+      : null;
 
   // Chart data — one point per month
   const chartData: ChartMonth[] = rows.map((r) => ({
@@ -143,7 +156,14 @@ async function getClientDetail(id: string, rangeMonths: number) {
     cerrados: r.cerrados,
   }));
 
-  return { client, rows, totals: { ...totals, cpl: totalCPL }, chartData };
+  return {
+    client,
+    rows,
+    totals: { ...totals, cpl: totalCPL },
+    totalFacturacion,
+    totalRoi,
+    chartData,
+  };
 }
 
 // ── Page ──────────────────────────────────────────────────────
@@ -189,7 +209,8 @@ export default async function ClientDetailPage({
   const detail = await getClientDetail(params.id, range);
   if (!detail) notFound();
 
-  const { client, rows, totals, chartData } = detail;
+  const { client, rows, totals, chartData, totalFacturacion, totalRoi } = detail;
+  const showRoi = totalFacturacion > 0 || rows.some((r) => r.facturacion > 0);
 
   // Only show months that have at least some data
   const hasData = rows.some((r) => r.leads + r.cerrados + r.gasto > 0);
@@ -247,13 +268,26 @@ export default async function ClientDetailPage({
       </div>
 
       {/* ── KPI Summary cards ── */}
-      <div className="grid grid-cols-2 xl:grid-cols-6 gap-4">
+      <div className={`grid grid-cols-2 gap-4 ${showRoi ? "xl:grid-cols-4 2xl:grid-cols-8" : "xl:grid-cols-6"}`}>
         <KpiCard label="Leads"        value={fmt(totals.leads)}        />
         <KpiCard label="Agendados"    value={fmt(totals.agendados)}    />
         <KpiCard label="Presenciales" value={fmt(totals.presenciales)} />
         <KpiCard label="Cerrados"     value={fmt(totals.cerrados)}     accent />
         <KpiCard label="Gasto Meta"   value={`€${fmtEur(totals.gasto)}`} />
         <KpiCard label="CPL"          value={totals.cpl > 0 ? `€${fmtEur(totals.cpl)}` : "—"} />
+        {showRoi && (
+          <>
+            <KpiCard
+              label="Facturación real"
+              value={`€${fmtEur(totalFacturacion)}`}
+            />
+            <KpiCard
+              label="ROI período"
+              value={totalRoi !== null ? `${totalRoi >= 0 ? "+" : ""}${totalRoi.toFixed(0)}%` : "—"}
+              accent={totalRoi !== null && totalRoi >= 0}
+            />
+          </>
+        )}
       </div>
 
       {/* ── Line chart ── */}
@@ -303,6 +337,8 @@ export default async function ClientDetailPage({
                   <Th>% Cierre</Th>
                   <Th>Gasto Meta</Th>
                   <Th>CPL</Th>
+                  {showRoi && <Th>Facturación real</Th>}
+                  {showRoi && <Th>ROI</Th>}
                 </tr>
               </thead>
               <tbody>
@@ -327,6 +363,20 @@ export default async function ClientDetailPage({
                       <Td><RateBadge value={row.tasa_cierre}         thresholds={[30, 15]} empty={isEmpty} /></Td>
                       <Td>{row.gasto > 0 ? `€${fmtEur(row.gasto)}` : "—"}</Td>
                       <Td>{row.cpl > 0 ? `€${fmtEur(row.cpl)}` : "—"}</Td>
+                      {showRoi && (
+                        <Td>{row.facturacion > 0 ? `€${fmtEur(row.facturacion)}` : "—"}</Td>
+                      )}
+                      {showRoi && (
+                        <Td>
+                          {row.roi !== null ? (
+                            <span className={`text-xs font-medium tabular-nums ${
+                              row.roi >= 0 ? "text-accent" : "text-red-400"
+                            }`}>
+                              {row.roi >= 0 ? "+" : ""}{row.roi.toFixed(0)}%
+                            </span>
+                          ) : "—"}
+                        </Td>
+                      )}
                     </tr>
                   );
                 })}
@@ -346,6 +396,18 @@ export default async function ClientDetailPage({
                   <Td bold><RateBadge value={pct(totals.cerrados, totals.presenciales)} thresholds={[30, 15]} /></Td>
                   <Td bold>{totals.gasto > 0 ? `€${fmtEur(totals.gasto)}` : "—"}</Td>
                   <Td bold>{totals.cpl > 0 ? `€${fmtEur(totals.cpl)}` : "—"}</Td>
+                  {showRoi && (
+                    <Td bold>{totalFacturacion > 0 ? `€${fmtEur(totalFacturacion)}` : "—"}</Td>
+                  )}
+                  {showRoi && (
+                    <Td bold>
+                      {totalRoi !== null ? (
+                        <span className={totalRoi >= 0 ? "text-accent" : "text-red-400"}>
+                          {totalRoi >= 0 ? "+" : ""}{totalRoi.toFixed(0)}%
+                        </span>
+                      ) : "—"}
+                    </Td>
+                  )}
                 </tr>
               </tfoot>
             </table>
