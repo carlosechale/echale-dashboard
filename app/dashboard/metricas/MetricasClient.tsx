@@ -19,6 +19,19 @@ async function syncGhl(client_id: string) {
   return data as { leads: number; agendados: number; presenciales: number; cerrados: number };
 }
 
+// ── Meta sync ─────────────────────────────────────────────────
+
+async function syncMeta(client_id: string) {
+  const res = await fetch("/api/sync/meta", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Error al sincronizar Meta");
+  return data as { spend: number; leads: number; cpl: number };
+}
+
 // ── Constants ────────────────────────────────────────────────
 
 const MONTHS = [
@@ -75,6 +88,7 @@ export default function MetricasClient({
     msg: string;
   } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingMeta, setIsSyncingMeta] = useState(false);
 
   async function handleSync() {
     if (!form.client_id) {
@@ -97,6 +111,30 @@ export default function MetricasClient({
       });
     } finally {
       setIsSyncing(false);
+    }
+  }
+
+  async function handleSyncMeta() {
+    if (!form.client_id) {
+      setSyncStatus({ type: "error", msg: "Selecciona un cliente antes de sincronizar." });
+      return;
+    }
+    setIsSyncingMeta(true);
+    setSyncStatus(null);
+    try {
+      const result = await syncMeta(form.client_id);
+      setSyncStatus({
+        type: "success",
+        msg: `Meta sincronizado: €${result.spend.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} gasto · ${result.leads} leads · €${result.cpl.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CPL`,
+      });
+      router.refresh();
+    } catch (err) {
+      setSyncStatus({
+        type: "error",
+        msg: err instanceof Error ? err.message : "Error al sincronizar Meta",
+      });
+    } finally {
+      setIsSyncingMeta(false);
     }
   }
 
@@ -200,7 +238,7 @@ export default function MetricasClient({
             <button
               type="button"
               onClick={handleSync}
-              disabled={isSyncing || !form.client_id}
+              disabled={isSyncing || isSyncingMeta || !form.client_id}
               className="inline-flex items-center gap-1.5 text-xs font-sans font-medium border border-accent/30 text-accent bg-accent/5 hover:bg-accent/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               title={!form.client_id ? "Selecciona un cliente primero" : "Importar métricas GHL del mes actual"}
             >
@@ -218,6 +256,30 @@ export default function MetricasClient({
                     <path d="M3.51 15a9 9 0 1 0 .49-4.95" />
                   </svg>
                   Sincronizar GHL
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleSyncMeta}
+              disabled={isSyncingMeta || isSyncing || !form.client_id}
+              className="inline-flex items-center gap-1.5 text-xs font-sans font-medium border border-accent/30 text-accent bg-accent/5 hover:bg-accent/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={!form.client_id ? "Selecciona un cliente primero" : "Importar métricas Meta Ads del mes actual"}
+            >
+              {isSyncingMeta ? (
+                <>
+                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  Sincronizando…
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 .49-4.95" />
+                  </svg>
+                  Sincronizar Meta
                 </>
               )}
             </button>

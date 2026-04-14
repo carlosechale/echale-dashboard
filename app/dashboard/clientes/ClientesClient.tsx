@@ -44,6 +44,7 @@ interface EditForm {
   ghl_api_key: string;
   ghl_location_id: string;
   gsc_property_url: string;
+  meta_ad_account_id: string;
 }
 
 const EMPTY_CREATE: CreateForm = {
@@ -66,7 +67,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
 
   // Edit modal
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: "", slug: "", ghl_api_key: "", ghl_location_id: "", gsc_property_url: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ name: "", slug: "", ghl_api_key: "", ghl_location_id: "", gsc_property_url: "", meta_ad_account_id: "" });
   const [editSlugManual, setEditSlugManual] = useState(false);
   const [showEditApiKey, setShowEditApiKey] = useState(false);
   const [editStatus, setEditStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
@@ -135,6 +136,7 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
       ghl_api_key: client.ghl_api_key ?? "",
       ghl_location_id: client.ghl_location_id ?? "",
       gsc_property_url: client.gsc_property_url ?? "",
+      meta_ad_account_id: client.meta_ad_account_id ?? "",
     });
     setEditSlugManual(true); // don't auto-overwrite existing slug on open
     setShowEditApiKey(false);
@@ -440,6 +442,26 @@ export default function ClientesClient({ clients }: { clients: Client[] }) {
                 />
                 <p className="text-xs font-sans text-muted/60 mt-1.5">
                   Debe coincidir exactamente con la propiedad en GSC (incluye la barra final).
+                </p>
+              </div>
+            </div>
+
+            {/* Meta Ads */}
+            <div className="border-t border-border pt-5 space-y-4">
+              <p className="text-xs font-sans font-semibold text-muted uppercase tracking-widest">
+                Meta Ads
+              </p>
+              <div>
+                <FieldLabel>Meta Ad Account ID</FieldLabel>
+                <input
+                  type="text"
+                  value={editForm.meta_ad_account_id}
+                  onChange={(e) => setE("meta_ad_account_id", e.target.value)}
+                  placeholder="act_1234567890"
+                  className={`${inputCls} font-mono text-xs`}
+                />
+                <p className="text-xs font-sans text-muted/60 mt-1.5">
+                  ID de la cuenta publicitaria (con o sin prefijo act_).
                 </p>
               </div>
             </div>
