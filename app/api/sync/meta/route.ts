@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getMetaAdsData } from "@/lib/meta";
 
 export async function POST(request: NextRequest) {
@@ -19,6 +20,8 @@ export async function POST(request: NextRequest) {
   if (profile?.role !== "admin") {
     return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
+
+  const adminSupabase = createAdminClient();
 
   // 2 — Parse body
   const body = await request.json().catch(() => ({}));
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
     );
 
   if (upsertError) {
-    await supabase.from("sync_logs").insert({
+    await adminSupabase.from("sync_logs").insert({
       client_id,
       tipo: "meta",
       status: "error",
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
   }
 
-  await supabase.from("sync_logs").insert({
+  await adminSupabase.from("sync_logs").insert({
     client_id,
     tipo: "meta",
     status: "success",
