@@ -14,8 +14,8 @@ function currentMonthLabel(): string {
   return new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" });
 }
 
-function pct(num: number, den: number): number {
-  if (!den) return 0;
+function pct(num: number, den: number): number | null {
+  if (!den) return null;
   return Math.round((num / den) * 100);
 }
 
@@ -117,7 +117,7 @@ async function getClientData(userId: string) {
   );
 
   const totalLeads = ghl.leads || meta.leads;
-  const cpl = totalLeads > 0 ? meta.gasto / totalLeads : 0;
+  const cpl = totalLeads > 0 ? meta.gasto / totalLeads : null;
 
   // Previous month values (single row per metric table)
   const prevGhl = prevGhlRows
@@ -324,9 +324,9 @@ export default async function ClientDashboard({ userId }: Props) {
             <div>
               <p className="text-muted text-xs font-sans mb-1">CPL · Coste por lead</p>
               <p className="font-display text-3xl font-bold text-accent">
-                {fmtEurDec(meta.cpl)}
+                {meta.cpl !== null ? fmtEurDec(meta.cpl) : "—"}
               </p>
-              {prev?.cpl !== null && prev?.cpl !== undefined && (
+              {meta.cpl !== null && prev?.cpl !== null && prev?.cpl !== undefined && (
                 <DeltaTag
                   delta={meta.cpl - prev.cpl}
                   formatter={(v) => fmtEurDec(Math.abs(v))}
@@ -612,9 +612,20 @@ function RateCard({
 }: {
   label: string;
   subtitle: string;
-  value: number;
+  value: number | null;
   thresholds: [number, number];
 }) {
+  if (value === null) {
+    return (
+      <div className="rounded-xl p-5 border bg-surface border-border">
+        <p className="text-muted text-xs font-sans uppercase tracking-widest">{label}</p>
+        <p className="mt-2 font-display text-4xl font-bold text-muted/30">—</p>
+        <p className="mt-1 text-muted text-xs font-sans">{subtitle}</p>
+        <div className="mt-4 h-1 bg-border rounded-full overflow-hidden" />
+      </div>
+    );
+  }
+
   const [good, ok] = thresholds;
   let ringColor = "border-red-500/30", textColor = "text-red-400",
       bgColor = "bg-red-500/5", barColor = "bg-red-400";

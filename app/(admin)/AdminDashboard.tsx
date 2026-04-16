@@ -12,8 +12,8 @@ function currentMonthLabel(): string {
   return new Date().toLocaleDateString("es-MX", { month: "long", year: "numeric" });
 }
 
-function pct(num: number, den: number): number {
-  if (!den) return 0;
+function pct(num: number, den: number): number | null {
+  if (!den) return null;
   return Math.round((num / den) * 100);
 }
 
@@ -80,7 +80,7 @@ async function getAdminDashboardData(): Promise<ClientMonthSummary[]> {
     const ghl  = ghlByClient[c.id]  ?? { leads: 0, agendados: 0, presenciales: 0, cerrados: 0 };
     const meta = metaByClient[c.id] ?? { gasto: 0, leads: 0 };
     const totalLeads = ghl.leads || meta.leads;
-    const cpl = totalLeads > 0 ? meta.gasto / totalLeads : 0;
+    const cpl = totalLeads > 0 ? meta.gasto / totalLeads : null;
 
     return {
       client_id:            c.id,
@@ -114,7 +114,7 @@ export default async function AdminDashboard() {
     }),
     { leads: 0, agendados: 0, presenciales: 0, cerrados: 0, gasto: 0 }
   );
-  const totalCPL = totals.leads > 0 ? totals.gasto / totals.leads : 0;
+  const totalCPL = totals.leads > 0 ? totals.gasto / totals.leads : null;
 
   const month = currentMonthLabel();
 
@@ -142,7 +142,7 @@ export default async function AdminDashboard() {
         <KpiCard label="Leads totales"     value={fmt(totals.leads)}        />
         <KpiCard label="Cerrados"          value={fmt(totals.cerrados)}      accent />
         <KpiCard label="Gasto Meta Ads"    value={fmtMXN(totals.gasto)}     />
-        <KpiCard label="CPL promedio"      value={fmtMXN(totalCPL)}         />
+        <KpiCard label="CPL promedio"      value={totalCPL !== null ? fmtMXN(totalCPL) : "—"} />
       </div>
 
       {/* ── Clients table ── */}
@@ -197,7 +197,7 @@ export default async function AdminDashboard() {
                     <Td>{fmt(row.cerrados)}</Td>
                     <Td><RateBadge value={row.tasa_cierre} thresholds={[30, 15]} /></Td>
                     <Td>{fmtMXN(row.gasto)}</Td>
-                    <Td>{fmtMXN(row.cpl)}</Td>
+                    <Td>{row.cpl !== null ? fmtMXN(row.cpl) : "—"}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -215,7 +215,7 @@ export default async function AdminDashboard() {
                   <Td bold>{fmt(totals.cerrados)}</Td>
                   <Td bold><RateBadge value={pct(totals.cerrados, totals.presenciales)} thresholds={[30, 15]} /></Td>
                   <Td bold>{fmtMXN(totals.gasto)}</Td>
-                  <Td bold>{fmtMXN(totalCPL)}</Td>
+                  <Td bold>{totalCPL !== null ? fmtMXN(totalCPL) : "—"}</Td>
                 </tr>
               </tfoot>
             </table>
@@ -282,8 +282,17 @@ function Td({ children, bold }: { children: React.ReactNode; bold?: boolean }) {
 /**
  * Color badge for percentage rates.
  * thresholds: [good, ok] — above good = green, above ok = yellow, below ok = red
+ * value = null means no data (denominator was 0) — shows "—"
  */
-function RateBadge({ value, thresholds }: { value: number; thresholds: [number, number] }) {
+function RateBadge({ value, thresholds }: { value: number | null; thresholds: [number, number] }) {
+  if (value === null) {
+    return (
+      <span className="inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium font-sans text-muted/40">
+        —
+      </span>
+    );
+  }
+
   const [good, ok] = thresholds;
   let color = "text-red-400 bg-red-400/10";
   if (value >= good) color = "text-accent bg-accent/10";

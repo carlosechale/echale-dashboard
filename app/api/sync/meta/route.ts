@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 6 — Upsert into metrics_meta
-  const { error: upsertError } = await supabase
+  const { error: upsertError } = await adminSupabase
     .from("metrics_meta")
     .upsert(
       {

@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 6 — Upsert into metrics_ghl
-  const { error: upsertError } = await supabase
+  const { error: upsertError } = await adminSupabase
     .from("metrics_ghl")
     .upsert(
       {

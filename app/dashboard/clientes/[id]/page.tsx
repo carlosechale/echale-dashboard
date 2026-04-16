@@ -15,17 +15,17 @@ interface MonthRow {
   cerrados: number;
   gasto: number;
   cpl: number;
-  tasa_agendamiento: number;
-  tasa_presencialidad: number;
-  tasa_cierre: number;
+  tasa_agendamiento: number | null;
+  tasa_presencialidad: number | null;
+  tasa_cierre: number | null;
   facturacion: number;
   roi: number | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function pct(num: number, den: number) {
-  return den ? Math.round((num / den) * 100) : 0;
+function pct(num: number, den: number): number | null {
+  return den ? Math.round((num / den) * 100) : null;
 }
 
 function fmt(n: number) {
@@ -142,7 +142,7 @@ async function getClientDetail(id: string, rangeMonths: number) {
     }),
     { leads: 0, agendados: 0, presenciales: 0, cerrados: 0, gasto: 0 }
   );
-  const totalCPL = totals.leads > 0 ? totals.gasto / totals.leads : 0;
+  const totalCPL = totals.leads > 0 ? totals.gasto / totals.leads : null;
   const totalFacturacion = rows.reduce((sum, r) => sum + r.facturacion, 0);
   const totalRoi =
     totalFacturacion > 0 && totals.gasto > 0
@@ -274,7 +274,7 @@ export default async function ClientDetailPage({
         <KpiCard label="Presenciales" value={fmt(totals.presenciales)} />
         <KpiCard label="Cerrados"     value={fmt(totals.cerrados)}     accent />
         <KpiCard label="Gasto Meta"   value={`€${fmtEur(totals.gasto)}`} />
-        <KpiCard label="CPL"          value={totals.cpl > 0 ? `€${fmtEur(totals.cpl)}` : "—"} />
+        <KpiCard label="CPL"          value={totals.cpl !== null && totals.cpl > 0 ? `€${fmtEur(totals.cpl)}` : "—"} />
         {showRoi && (
           <>
             <KpiCard
@@ -395,7 +395,7 @@ export default async function ClientDetailPage({
                   <Td bold>{fmt(totals.cerrados)}</Td>
                   <Td bold><RateBadge value={pct(totals.cerrados, totals.presenciales)} thresholds={[30, 15]} /></Td>
                   <Td bold>{totals.gasto > 0 ? `€${fmtEur(totals.gasto)}` : "—"}</Td>
-                  <Td bold>{totals.cpl > 0 ? `€${fmtEur(totals.cpl)}` : "—"}</Td>
+                  <Td bold>{totals.cpl !== null && totals.cpl > 0 ? `€${fmtEur(totals.cpl)}` : "—"}</Td>
                   {showRoi && (
                     <Td bold>{totalFacturacion > 0 ? `€${fmtEur(totalFacturacion)}` : "—"}</Td>
                   )}
@@ -457,11 +457,11 @@ function RateBadge({
   thresholds,
   empty,
 }: {
-  value: number;
+  value: number | null;
   thresholds: [number, number];
   empty?: boolean;
 }) {
-  if (empty) return <span className="text-muted/40 text-xs font-sans">—</span>;
+  if (empty || value === null) return <span className="text-muted/40 text-xs font-sans">—</span>;
 
   const [good, ok] = thresholds;
   let cls = "text-red-400 bg-red-400/10";

@@ -54,8 +54,8 @@ export interface ClientMonthSummary {
   presenciales: number;
   cerrados: number;
   gasto: number;
-  cpl: number;
-  tasa_agendamiento: number;   // agendados / leads
-  tasa_presencialidad: number; // presenciales / agendados
-  tasa_cierre: number;         // cerrados / presenciales
+  cpl: number | null;           // null cuando leads = 0
+  tasa_agendamiento: number | null;   // null cuando leads = 0
+  tasa_presencialidad: number | null; // null cuando agendados = 0
+  tasa_cierre: number | null;         // null cuando presenciales = 0
 }
