@@ -45,6 +45,27 @@ export interface MetricsMeta {
   created_at: string;
 }
 
+export interface AgencySalesDaily {
+  id: string;
+  fecha: string;
+  paid_inversion: number;
+  paid_leads: number;
+  paid_agendas: number;
+  paid_cierres: number;
+  paid_ventas: number;
+  organico_leads: number;
+  organico_agendas: number;
+  organico_cierres: number;
+  organico_ventas: number;
+  outbound_llamadas: number;
+  outbound_contactos: number;
+  outbound_leads: number;
+  outbound_agendas: number;
+  outbound_cierres: number;
+  outbound_ventas: number;
+  created_at: string;
+}
+
 /** Métricas del mes agregadas por cliente */
 export interface ClientMonthSummary {
   client_id: string;
