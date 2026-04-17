@@ -21,10 +21,10 @@ function fmt(n: number): string {
   return n.toLocaleString("es-MX");
 }
 
-function fmtMXN(n: number): string {
-  return new Intl.NumberFormat("es-MX", {
+function fmtEur(n: number): string {
+  return new Intl.NumberFormat("es-ES", {
     style: "currency",
-    currency: "MXN",
+    currency: "EUR",
     maximumFractionDigits: 0,
   }).format(n);
 }
@@ -48,7 +48,7 @@ async function getAdminDashboardData(): Promise<ClientMonthSummary[]> {
         .gte("fecha", since),
       supabase
         .from("metrics_meta")
-        .select("client_id, gasto, leads")
+        .select("client_id, gasto")
         .gte("fecha", since),
     ]);
 
@@ -67,20 +67,19 @@ async function getAdminDashboardData(): Promise<ClientMonthSummary[]> {
   }
 
   // Aggregate Meta per client
-  const metaByClient: Record<string, { gasto: number; leads: number }> = {};
+  const metaByClient: Record<string, { gasto: number }> = {};
   for (const row of metaRows ?? []) {
     if (!metaByClient[row.client_id]) {
-      metaByClient[row.client_id] = { gasto: 0, leads: 0 };
+      metaByClient[row.client_id] = { gasto: 0 };
     }
     metaByClient[row.client_id].gasto += row.gasto ?? 0;
-    metaByClient[row.client_id].leads += row.leads ?? 0;
   }
 
   return clients.map((c) => {
     const ghl  = ghlByClient[c.id]  ?? { leads: 0, agendados: 0, presenciales: 0, cerrados: 0 };
-    const meta = metaByClient[c.id] ?? { gasto: 0, leads: 0 };
-    const totalLeads = ghl.leads || meta.leads;
-    const cpl = totalLeads > 0 ? meta.gasto / totalLeads : null;
+    const meta = metaByClient[c.id] ?? { gasto: 0 };
+    const totalLeads = ghl.leads;
+    const cpl = meta.gasto > 0 && totalLeads > 0 ? meta.gasto / totalLeads : null;
 
     return {
       client_id:            c.id,
@@ -92,7 +91,7 @@ async function getAdminDashboardData(): Promise<ClientMonthSummary[]> {
       gasto:                meta.gasto,
       cpl,
       tasa_agendamiento:    pct(ghl.agendados,    totalLeads),
-      tasa_presencialidad:  pct(ghl.presenciales, ghl.agendados),
+      tasa_presencialidad:  ghl.presenciales === 0 ? null : pct(ghl.presenciales, ghl.agendados),
       tasa_cierre:          pct(ghl.cerrados,     ghl.presenciales),
     };
   });
@@ -114,7 +113,7 @@ export default async function AdminDashboard() {
     }),
     { leads: 0, agendados: 0, presenciales: 0, cerrados: 0, gasto: 0 }
   );
-  const totalCPL = totals.leads > 0 ? totals.gasto / totals.leads : null;
+  const totalCPL = totals.gasto > 0 && totals.leads > 0 ? totals.gasto / totals.leads : null;
 
   const month = currentMonthLabel();
 
@@ -141,8 +140,8 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard label="Leads totales"     value={fmt(totals.leads)}        />
         <KpiCard label="Cerrados"          value={fmt(totals.cerrados)}      accent />
-        <KpiCard label="Gasto Meta Ads"    value={fmtMXN(totals.gasto)}     />
-        <KpiCard label="CPL promedio"      value={totalCPL !== null ? fmtMXN(totalCPL) : "—"} />
+        <KpiCard label="Gasto Meta Ads"    value={fmtEur(totals.gasto)}     />
+        <KpiCard label="CPL promedio"      value={totalCPL !== null ? fmtEur(totalCPL) : "—"} />
       </div>
 
       {/* ── Clients table ── */}
@@ -196,8 +195,8 @@ export default async function AdminDashboard() {
                     <Td><RateBadge value={row.tasa_presencialidad} thresholds={[60, 40]} /></Td>
                     <Td>{fmt(row.cerrados)}</Td>
                     <Td><RateBadge value={row.tasa_cierre} thresholds={[30, 15]} /></Td>
-                    <Td>{fmtMXN(row.gasto)}</Td>
-                    <Td>{row.cpl !== null ? fmtMXN(row.cpl) : "—"}</Td>
+                    <Td>{fmtEur(row.gasto)}</Td>
+                    <Td>{row.cpl !== null ? fmtEur(row.cpl) : "—"}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -214,8 +213,8 @@ export default async function AdminDashboard() {
                   <Td bold><RateBadge value={pct(totals.presenciales, totals.agendados)} thresholds={[60, 40]} /></Td>
                   <Td bold>{fmt(totals.cerrados)}</Td>
                   <Td bold><RateBadge value={pct(totals.cerrados, totals.presenciales)} thresholds={[30, 15]} /></Td>
-                  <Td bold>{fmtMXN(totals.gasto)}</Td>
-                  <Td bold>{totalCPL !== null ? fmtMXN(totalCPL) : "—"}</Td>
+                  <Td bold>{fmtEur(totals.gasto)}</Td>
+                  <Td bold>{totalCPL !== null ? fmtEur(totalCPL) : "—"}</Td>
                 </tr>
               </tfoot>
             </table>

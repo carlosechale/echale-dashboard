@@ -83,7 +83,7 @@ async function getClientData(userId: string) {
       .order("fecha"),
     supabase
       .from("metrics_meta")
-      .select("gasto, leads")
+      .select("gasto")
       .eq("client_id", clientId)
       .gte("fecha", since),
     supabase
@@ -94,7 +94,7 @@ async function getClientData(userId: string) {
       .maybeSingle(),
     supabase
       .from("metrics_meta")
-      .select("gasto, leads")
+      .select("gasto")
       .eq("client_id", clientId)
       .eq("fecha", prevSince)
       .maybeSingle(),
@@ -112,12 +112,12 @@ async function getClientData(userId: string) {
     { leads: 0, agendados: 0, presenciales: 0, cerrados: 0, facturacionReal: 0 }
   );
   const meta = (metaRows ?? []).reduce(
-    (acc, r) => ({ gasto: acc.gasto + (r.gasto ?? 0), leads: acc.leads + (r.leads ?? 0) }),
-    { gasto: 0, leads: 0 }
+    (acc, r) => ({ gasto: acc.gasto + (r.gasto ?? 0) }),
+    { gasto: 0 }
   );
 
-  const totalLeads = ghl.leads || meta.leads;
-  const cpl = totalLeads > 0 ? meta.gasto / totalLeads : null;
+  const totalLeads = ghl.leads;
+  const cpl = meta.gasto > 0 && totalLeads > 0 ? meta.gasto / totalLeads : null;
 
   // Previous month values (single row per metric table)
   const prevGhl = prevGhlRows
@@ -130,15 +130,12 @@ async function getClientData(userId: string) {
     : null;
 
   const prevMeta = prevMetaRows
-    ? {
-        gasto: prevMetaRows.gasto ?? 0,
-        leads: prevMetaRows.leads ?? 0,
-      }
+    ? { gasto: prevMetaRows.gasto ?? 0 }
     : null;
 
-  const prevTotalLeads = prevGhl ? (prevGhl.leads || (prevMeta?.leads ?? 0)) : null;
+  const prevTotalLeads = prevGhl ? prevGhl.leads : null;
   const prevCpl =
-    prevMeta && prevTotalLeads && prevTotalLeads > 0
+    prevMeta && prevMeta.gasto > 0 && prevTotalLeads && prevTotalLeads > 0
       ? prevMeta.gasto / prevTotalLeads
       : null;
 
@@ -201,7 +198,7 @@ async function getClientData(userId: string) {
       : null,
     rates: {
       agendamiento:   pct(ghl.agendados,    totalLeads),
-      presencialidad: pct(ghl.presenciales, ghl.agendados),
+      presencialidad: ghl.presenciales === 0 ? null : pct(ghl.presenciales, ghl.agendados),
       cierre:         pct(ghl.cerrados,     ghl.presenciales),
     },
     roi:          { facturacionReal, roi },
